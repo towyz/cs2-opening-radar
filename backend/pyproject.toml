@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cs2-opening-analyzer"
+version = "0.1.0"
+description = "CS2 demo analysis tool for extracting and visualizing player opening behavior"
+requires-python = ">=3.9"
+authors = [
+    {name = "CS2 Opening Radar Team", email = "team@example.com"}
+]
+readme = "README.md"
+license = {text = "MIT"}
+
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "awpy>=2.0.0",
+    "demoparser2>=2.0.0",
+    "polars>=0.19.0",
+    "python-multipart>=0.0.6",
+    "python-dotenv>=1.0.0",
+    "typing-extensions>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[tool.setuptools]
+packages = ["app"]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
