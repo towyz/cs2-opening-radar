@@ -97,6 +97,9 @@ class Summary(BaseModel):
     ct_rounds: int = Field(..., alias="ctRounds")
     grenades: GrenadeStats
 
+    class Config:
+        populate_by_name = True
+
 
 class Meta(BaseModel):
     """Metadata about the analysis."""
