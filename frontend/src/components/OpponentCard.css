@@ -1,0 +1,113 @@
+.opponent-card {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  color: white;
+  padding: 1rem;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.card-body {
+  padding: 1rem;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.stat-row:last-of-type {
+  border-bottom: none;
+}
+
+.stat-row .label {
+  font-weight: 500;
+  color: #666;
+  flex: 1;
+}
+
+.stat-row .value {
+  color: #333;
+  font-weight: 600;
+}
+
+.value code {
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  background: #f5f5f5;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+}
+
+.divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 1rem 0;
+}
+
+.card-body h4 {
+  font-size: 0.95rem;
+  margin: 0 0 0.75rem 0;
+  color: #333;
+}
+
+.grenade-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.grenade-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.grenade-type {
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  color: white;
+}
+
+.grenade-type.smoke {
+  background: #666;
+}
+
+.grenade-type.flash {
+  background: #ffc107;
+  color: #333;
+}
+
+.grenade-type.he {
+  background: #dc2626;
+}
+
+.grenade-type.molotov {
+  background: #ff6b6b;
+}
+
+.grenade-type.incendiary {
+  background: #ff9800;
+}
+
+.grenade-count {
+  font-weight: 600;
+  color: #333;
+}
