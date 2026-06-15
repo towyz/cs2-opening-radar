@@ -1,0 +1,16 @@
+{
+  "map": "de_dust2",
+  "radarImage": "radar.png",
+  "width": 1024,
+  "height": 1024,
+  "posX": -2476,
+  "posY": 3239,
+  "scale": 4.4,
+  "layers": [
+    {
+      "name": "default",
+      "zMin": -99999,
+      "zMax": 99999
+    }
+  ]
+}
