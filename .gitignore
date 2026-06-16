@@ -1,0 +1,30 @@
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.pyc
+
+# Node
+node_modules/
+.npm-cache/
+dist/
+coverage/
+
+# Go
+.tools/
+.gocache/
+parser-go/bin/
+
+# Runtime storage
+backend/storage/uploads/*
+backend/storage/results/*
+!backend/storage/uploads/.gitkeep
+!backend/storage/results/.gitkeep
+
+# Local map image, user-provided
+assets/maps/de_dust2/radar.png
+frontend/public/maps/de_dust2/radar.png
