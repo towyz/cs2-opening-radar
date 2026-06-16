@@ -7,19 +7,32 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/markus-wa/demoinfocs-golang/v5/pkg/demoinfocs/common"
 	demoinfocs "github.com/markus-wa/demoinfocs-golang/v5/pkg/demoinfocs"
+	"github.com/markus-wa/demoinfocs-golang/v5/pkg/demoinfocs/common"
 	"github.com/markus-wa/demoinfocs-golang/v5/pkg/demoinfocs/events"
 )
 
 type parseState struct {
+	result          *AnalysisResult
 	currentRound    int
 	activeRound     *RoundAnalysis
 	activeEndFrame  int
 	nextSampleFrame int
 	sampleStep      int
 	seenPlayers     map[string]bool
-	target           *common.Player
+	target          *common.Player
+	activeGrenades  map[int64]trackedGrenade
+}
+
+type trackedGrenade struct {
+	roundNumber            int
+	side                   string
+	grenadeType            string
+	throwTick              int
+	freezeEndTick          int
+	tickRate               float64
+	throwTimeFromFreezeEnd float64
+	throwPosition          PositionedPoint
 }
 
 func Analyze(opts Options) (*AnalysisResult, error) {
@@ -45,7 +58,11 @@ func Analyze(opts Options) (*AnalysisResult, error) {
 
 func parseDemo(opts Options) (*AnalysisResult, error) {
 	result := newEmptyResult(opts)
-	state := &parseState{seenPlayers: map[string]bool{}}
+	state := &parseState{
+		result:         result,
+		seenPlayers:    map[string]bool{},
+		activeGrenades: map[int64]trackedGrenade{},
+	}
 
 	err := demoinfocs.ParseFile(opts.DemoPath, func(parser demoinfocs.Parser) error {
 		rate := parser.TickRate()
@@ -105,7 +122,13 @@ func parseDemo(opts Options) (*AnalysisResult, error) {
 			}
 			samplePathPoint(parser, opts, state)
 		})
-		// TODO: Register grenade handlers and enrich round invalid reasons.
+		parser.RegisterEventHandler(func(e events.GrenadeProjectileThrow) {
+			recordGrenadeThrow(parser, opts, state, e.Projectile)
+		})
+		parser.RegisterEventHandler(func(e events.GrenadeProjectileDestroy) {
+			recordGrenadeDestroy(parser, opts, state, e.Projectile)
+		})
+		// TODO: Enrich round invalid reasons.
 		return nil
 	})
 	if err != nil {
@@ -127,6 +150,173 @@ func parseDemo(opts Options) (*AnalysisResult, error) {
 	result.Meta.TargetName = &target.Name
 	buildSummary(result)
 	return result, nil
+}
+
+func recordGrenadeThrow(parser demoinfocs.Parser, opts Options, state *parseState, projectile *common.GrenadeProjectile) {
+	if state.activeRound == nil || projectile == nil || projectile.Thrower == nil {
+		return
+	}
+	if fmt.Sprintf("%d", projectile.Thrower.SteamID64) != opts.Steam64 {
+		return
+	}
+	frame := parser.CurrentFrame()
+	if frame > state.activeEndFrame {
+		return
+	}
+	rate := parser.TickRate()
+	if rate <= 0 {
+		rate = 64
+	}
+	freezeEnd := 0
+	if state.activeRound.FreezeEndTick != nil {
+		freezeEnd = *state.activeRound.FreezeEndTick
+	}
+	pos := projectile.Position()
+	state.activeGrenades[projectile.UniqueID()] = trackedGrenade{
+		roundNumber:            state.activeRound.RoundNumber,
+		side:                   sideFromTeam(projectile.Thrower.Team),
+		grenadeType:            grenadeType(projectile),
+		throwTick:              frame,
+		freezeEndTick:          freezeEnd,
+		tickRate:               rate,
+		throwTimeFromFreezeEnd: float64(frame-freezeEnd) / rate,
+		throwPosition: PositionedPoint{
+			World: WorldPoint{X: pos.X, Y: pos.Y, Z: pos.Z},
+			Map:   opts.MapConfig.WorldToMap(pos.X, pos.Y, pos.Z),
+		},
+	}
+}
+
+func recordGrenadeDestroy(parser demoinfocs.Parser, opts Options, state *parseState, projectile *common.GrenadeProjectile) {
+	if projectile == nil {
+		return
+	}
+	tracked, ok := state.activeGrenades[projectile.UniqueID()]
+	if !ok {
+		return
+	}
+	delete(state.activeGrenades, projectile.UniqueID())
+	round := findRoundByNumber(state.result, tracked.roundNumber)
+	if round == nil {
+		return
+	}
+	tracked = normalizeGrenadeStart(opts, tracked, projectile.Trajectory)
+	trajectory := grenadeTrajectory(opts, tracked, projectile.Trajectory)
+	detonate := detonatePosition(opts, projectile, trajectory)
+	round.Grenades = append(round.Grenades, GrenadeEvent{
+		RoundNumber:            tracked.roundNumber,
+		Side:                   tracked.side,
+		Type:                   tracked.grenadeType,
+		ThrowTick:              tracked.throwTick,
+		ThrowTimeFromFreezeEnd: tracked.throwTimeFromFreezeEnd,
+		ThrowPosition:          tracked.throwPosition,
+		DetonatePosition:       detonate,
+		TrajectorySource:       trajectorySource(trajectory),
+		Trajectory:             trajectory,
+	})
+}
+
+func normalizeGrenadeStart(opts Options, tracked trackedGrenade, entries []common.TrajectoryEntry) trackedGrenade {
+	if len(entries) == 0 {
+		return tracked
+	}
+	first := entries[0]
+	tick := trajectoryTick(first, tracked.throwTick)
+	if tick == 0 || tick >= tracked.throwTick {
+		return tracked
+	}
+	rate := tracked.tickRate
+	if rate <= 0 {
+		rate = 64
+	}
+	pos := first.Position
+	tracked.throwTick = tick
+	tracked.throwTimeFromFreezeEnd = float64(tick-tracked.freezeEndTick) / rate
+	tracked.throwPosition = PositionedPoint{
+		World: WorldPoint{X: pos.X, Y: pos.Y, Z: pos.Z},
+		Map:   opts.MapConfig.WorldToMap(pos.X, pos.Y, pos.Z),
+	}
+	return tracked
+}
+
+func grenadeType(projectile *common.GrenadeProjectile) string {
+	if projectile == nil || projectile.WeaponInstance == nil {
+		return "unknown"
+	}
+	switch projectile.WeaponInstance.Type {
+	case common.EqSmoke:
+		return "smoke"
+	case common.EqFlash:
+		return "flash"
+	case common.EqHE:
+		return "he"
+	case common.EqMolotov:
+		return "molotov"
+	case common.EqIncendiary:
+		return "incendiary"
+	default:
+		return "unknown"
+	}
+}
+
+func grenadeTrajectory(opts Options, tracked trackedGrenade, entries []common.TrajectoryEntry) []GrenadeTrajectoryPoint {
+	points := make([]GrenadeTrajectoryPoint, 0, len(entries))
+	rate := tracked.tickRate
+	if rate <= 0 {
+		rate = 64
+	}
+	for idx, entry := range entries {
+		tick := trajectoryTick(entry, tracked.throwTick+idx)
+		pos := entry.Position
+		points = append(points, GrenadeTrajectoryPoint{
+			Tick:          tick,
+			TimeFromThrow: float64(tick-tracked.throwTick) / rate,
+			World:         WorldPoint{X: pos.X, Y: pos.Y, Z: pos.Z},
+			Map:           opts.MapConfig.WorldToMap(pos.X, pos.Y, pos.Z),
+		})
+	}
+	return points
+}
+
+func trajectoryTick(entry common.TrajectoryEntry, fallback int) int {
+	if entry.Tick != 0 {
+		return entry.Tick
+	}
+	if entry.FrameID != 0 {
+		return entry.FrameID
+	}
+	return fallback
+}
+
+func detonatePosition(opts Options, projectile *common.GrenadeProjectile, trajectory []GrenadeTrajectoryPoint) *PositionedPoint {
+	if len(trajectory) > 0 {
+		last := trajectory[len(trajectory)-1]
+		return &PositionedPoint{World: last.World, Map: last.Map}
+	}
+	if projectile == nil || projectile.Entity == nil {
+		return nil
+	}
+	pos := projectile.Position()
+	return &PositionedPoint{
+		World: WorldPoint{X: pos.X, Y: pos.Y, Z: pos.Z},
+		Map:   opts.MapConfig.WorldToMap(pos.X, pos.Y, pos.Z),
+	}
+}
+
+func trajectorySource(trajectory []GrenadeTrajectoryPoint) string {
+	if len(trajectory) == 0 {
+		return "missing"
+	}
+	return "parsed"
+}
+
+func findRoundByNumber(result *AnalysisResult, roundNumber int) *RoundAnalysis {
+	for idx := range result.Rounds {
+		if result.Rounds[idx].RoundNumber == roundNumber {
+			return &result.Rounds[idx]
+		}
+	}
+	return nil
 }
 
 func collectPlayers(parser demoinfocs.Parser, result *AnalysisResult, seen map[string]bool) {
