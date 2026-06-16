@@ -3,12 +3,24 @@ package analyzer
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 
+	"github.com/markus-wa/demoinfocs-golang/v5/pkg/demoinfocs/common"
 	demoinfocs "github.com/markus-wa/demoinfocs-golang/v5/pkg/demoinfocs"
 	"github.com/markus-wa/demoinfocs-golang/v5/pkg/demoinfocs/events"
 )
+
+type parseState struct {
+	currentRound    int
+	activeRound     *RoundAnalysis
+	activeEndFrame  int
+	nextSampleFrame int
+	sampleStep      int
+	seenPlayers     map[string]bool
+	target           *common.Player
+}
 
 func Analyze(opts Options) (*AnalysisResult, error) {
 	if opts.WindowSeconds <= 0 {
@@ -33,22 +45,67 @@ func Analyze(opts Options) (*AnalysisResult, error) {
 
 func parseDemo(opts Options) (*AnalysisResult, error) {
 	result := newEmptyResult(opts)
-	seenPlayers := map[string]bool{}
+	state := &parseState{seenPlayers: map[string]bool{}}
 
 	err := demoinfocs.ParseFile(opts.DemoPath, func(parser demoinfocs.Parser) error {
 		rate := parser.TickRate()
 		if rate > 0 {
 			result.Meta.TickRate = &rate
+			state.sampleStep = sampleTickStep(rate)
 		}
+		if state.sampleStep == 0 {
+			state.sampleStep = 13
+		}
+		parser.RegisterEventHandler(func(events.RoundStart) {
+			state.currentRound++
+			state.activeRound = nil
+		})
+		parser.RegisterEventHandler(func(events.RoundFreezetimeEnd) {
+			collectPlayers(parser, result, state.seenPlayers)
+			target := findTargetPlayer(parser, opts.Steam64)
+			if target == nil {
+				return
+			}
+			state.target = target
+			startFrame := parser.CurrentFrame()
+			tickRate := parser.TickRate()
+			if tickRate <= 0 {
+				tickRate = 64
+			}
+			windowEnd := startFrame + int(math.Round(tickRate*float64(opts.WindowSeconds)))
+			freezeEnd := startFrame
+			roundNumber := state.currentRound
+			if roundNumber == 0 {
+				roundNumber = len(result.Rounds) + 1
+			}
+			round := RoundAnalysis{
+				RoundNumber:      roundNumber,
+				Side:             sideFromTeam(target.Team),
+				Valid:            false,
+				InvalidReason:    nil,
+				FreezeEndTick:    &freezeEnd,
+				WindowEndTick:    &windowEnd,
+				TimeWindowSource: "freeze_end_event",
+				EquipmentValue:   nil,
+				RoundType:        nil,
+				Path:             []PathPoint{},
+				Grenades:         []GrenadeEvent{},
+			}
+			result.Rounds = append(result.Rounds, round)
+			state.activeRound = &result.Rounds[len(result.Rounds)-1]
+			state.activeEndFrame = windowEnd
+			state.nextSampleFrame = startFrame
+		})
 		parser.RegisterEventHandler(func(events.FrameDone) {
-			collectPlayers(parser, result, seenPlayers)
+			collectPlayers(parser, result, state.seenPlayers)
 			rate := parser.TickRate()
 			if rate > 0 {
 				result.Meta.TickRate = &rate
+				state.sampleStep = sampleTickStep(rate)
 			}
+			samplePathPoint(parser, opts, state)
 		})
-		// TODO: Register round, tick, and grenade handlers against demoinfocs events.
-		// This scaffold deliberately avoids fabricating data before real demo validation.
+		// TODO: Register grenade handlers and enrich round invalid reasons.
 		return nil
 	})
 	if err != nil {
@@ -68,6 +125,7 @@ func parseDemo(opts Options) (*AnalysisResult, error) {
 		}
 	}
 	result.Meta.TargetName = &target.Name
+	buildSummary(result)
 	return result, nil
 }
 
@@ -86,6 +144,121 @@ func collectPlayers(parser demoinfocs.Parser, result *AnalysisResult, seen map[s
 			Name:    player.Name,
 			Steam64: steam64,
 		})
+	}
+}
+
+func samplePathPoint(parser demoinfocs.Parser, opts Options, state *parseState) {
+	if state.activeRound == nil {
+		return
+	}
+	frame := parser.CurrentFrame()
+	if frame > state.activeEndFrame {
+		state.activeRound = nil
+		return
+	}
+	if frame < state.nextSampleFrame {
+		return
+	}
+	target := findTargetPlayer(parser, opts.Steam64)
+	if target == nil {
+		target = state.target
+	}
+	if target == nil {
+		return
+	}
+	state.target = target
+	rate := parser.TickRate()
+	if rate <= 0 {
+		rate = 64
+	}
+	freezeEnd := 0
+	if state.activeRound.FreezeEndTick != nil {
+		freezeEnd = *state.activeRound.FreezeEndTick
+	}
+	pos := target.Position()
+	mapPoint := opts.MapConfig.WorldToMap(pos.X, pos.Y, pos.Z)
+	point := PathPoint{
+		Tick:              frame,
+		TimeFromFreezeEnd: float64(frame-freezeEnd) / rate,
+		World:             WorldPoint{X: pos.X, Y: pos.Y, Z: pos.Z},
+		Map:               mapPoint,
+		Alive:             target.IsAlive(),
+		Velocity:          nil,
+	}
+	state.activeRound.Path = append(state.activeRound.Path, point)
+	state.activeRound.Side = sideFromTeam(target.Team)
+	state.activeRound.Valid = true
+	step := state.sampleStep
+	if step <= 0 {
+		step = sampleTickStep(rate)
+	}
+	state.nextSampleFrame = frame + step
+}
+
+func findTargetPlayer(parser demoinfocs.Parser, steam64 string) *common.Player {
+	for _, player := range parser.GameState().Participants().All() {
+		if player == nil || player.SteamID64 == 0 {
+			continue
+		}
+		if fmt.Sprintf("%d", player.SteamID64) == steam64 {
+			return player
+		}
+	}
+	return nil
+}
+
+func sideFromTeam(team common.Team) string {
+	switch team {
+	case common.TeamTerrorists:
+		return "T"
+	case common.TeamCounterTerrorists:
+		return "CT"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+func sampleTickStep(tickRate float64) int {
+	step := int(math.Round(tickRate * 0.2))
+	if step < 1 {
+		return 1
+	}
+	return step
+}
+
+func buildSummary(result *AnalysisResult) {
+	result.Summary.TotalRounds = len(result.Rounds)
+	result.Summary.ValidRounds = 0
+	result.Summary.TRounds = 0
+	result.Summary.CTRounds = 0
+	result.Summary.Grenades = GrenadeSummary{}
+	for idx := range result.Rounds {
+		round := &result.Rounds[idx]
+		if round.Valid {
+			result.Summary.ValidRounds++
+		}
+		switch round.Side {
+		case "T":
+			result.Summary.TRounds++
+		case "CT":
+			result.Summary.CTRounds++
+		}
+		for _, grenade := range round.Grenades {
+			switch grenade.Type {
+			case "smoke":
+				result.Summary.Grenades.Smoke++
+			case "flash":
+				result.Summary.Grenades.Flash++
+			case "he":
+				result.Summary.Grenades.HE++
+			case "molotov":
+				result.Summary.Grenades.Molotov++
+			case "incendiary":
+				result.Summary.Grenades.Incendiary++
+			default:
+				result.Summary.Grenades.Unknown++
+			}
+		}
 	}
 }
 

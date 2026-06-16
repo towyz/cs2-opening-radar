@@ -21,3 +21,6 @@ func WorldToMap(cfg MapConfig, worldX float64, worldY float64, worldZ float64) M
 	}
 }
 
+func (cfg MapConfig) WorldToMap(worldX float64, worldY float64, worldZ float64) MapPoint {
+	return WorldToMap(cfg, worldX, worldY, worldZ)
+}
