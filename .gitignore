@@ -20,6 +20,7 @@ coverage/
 parser-go/bin/
 
 # Runtime storage
+backend/local_demo_config.json
 backend/storage/uploads/*
 backend/storage/results/*
 !backend/storage/uploads/.gitkeep

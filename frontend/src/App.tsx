@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { ApiError, analyzeDemo } from "./api/client";
+import { ApiError, analyzeDemo, analyzeLocalDemo } from "./api/client";
 import { FilterPanel, type Filters } from "./components/FilterPanel";
+import { LocalDemoPanel } from "./components/LocalDemoPanel";
 import { MapViewer } from "./components/MapViewer";
 import { OpponentCard } from "./components/OpponentCard";
 import { UploadPanel } from "./components/UploadPanel";
@@ -39,10 +40,27 @@ export default function App() {
     }
   }
 
+  async function handleAnalyzeLocal(path: string, steam64: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await analyzeLocalDemo({ path, steam64 });
+      setResult(response.result);
+      setFilters(defaultFilters);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="toolbar-band">
-        <UploadPanel loading={loading} error={error} onAnalyze={handleAnalyze} />
+        <div className="toolbar-grid">
+          <UploadPanel loading={loading} error={error} onAnalyze={handleAnalyze} />
+          <LocalDemoPanel loading={loading} onAnalyze={handleAnalyzeLocal} />
+        </div>
       </section>
 
       <section className="workspace-grid">

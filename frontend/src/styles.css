@@ -31,11 +31,61 @@ select {
   padding: 14px 18px;
 }
 
+.toolbar-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
 .upload-panel {
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr) auto minmax(160px, 1fr);
+  grid-template-columns: minmax(180px, 1.2fr) minmax(160px, 1fr) auto;
   gap: 12px;
   align-items: center;
+}
+
+.local-demo-panel {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) minmax(150px, 0.6fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.local-demo-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #c9d4df;
+  white-space: nowrap;
+}
+
+.icon-button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid #39485a;
+  border-radius: 6px;
+  color: #e8edf3;
+  background: #1b2530;
+  cursor: pointer;
+}
+
+.icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.local-demo-select {
+  min-width: 0;
+}
+
+.config-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #9ba8b6;
+  overflow-wrap: anywhere;
 }
 
 .file-control,
@@ -222,7 +272,12 @@ select {
 }
 
 @media (max-width: 880px) {
+  .toolbar-grid,
   .upload-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .local-demo-panel {
     grid-template-columns: 1fr;
   }
 
@@ -235,4 +290,3 @@ select {
     border-bottom: 1px solid #263241;
   }
 }
-
