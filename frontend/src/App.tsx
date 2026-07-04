@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ApiError, analyzeDemo, analyzeLocalDemo } from "./api/client";
-import { FilterPanel, type Filters } from "./components/FilterPanel";
+import { FilterPanel, type Filters, type ViewMode } from "./components/FilterPanel";
 import { LocalDemoPanel } from "./components/LocalDemoPanel";
 import { MapViewer } from "./components/MapViewer";
 import { OpponentCard } from "./components/OpponentCard";
@@ -10,6 +10,7 @@ import type { AnalysisResult } from "./types/analysis";
 const defaultFilters: Filters = {
   side: "ALL",
   roundNumber: "ALL",
+  playbackRoundNumbers: [],
   grenadeType: "ALL",
   showPath: true,
   showGrenades: true
@@ -20,9 +21,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<Filters>(defaultFilters);
+  const [viewMode, setViewMode] = useState<ViewMode>("overview");
 
   const roundOptions = useMemo(
-    () => result?.rounds.map((round) => round.roundNumber) ?? [],
+    () => result?.rounds.filter((round) => round.valid).map((round) => round.roundNumber) ?? [],
     [result]
   );
 
@@ -33,6 +35,7 @@ export default function App() {
       const response = await analyzeDemo({ demo, steam64 });
       setResult(response.result);
       setFilters(defaultFilters);
+      setViewMode("overview");
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -47,6 +50,7 @@ export default function App() {
       const response = await analyzeLocalDemo({ path, steam64 });
       setResult(response.result);
       setFilters(defaultFilters);
+      setViewMode("overview");
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -68,12 +72,14 @@ export default function App() {
           <OpponentCard result={result} />
           <FilterPanel
             filters={filters}
+            viewMode={viewMode}
             rounds={roundOptions}
             disabled={!result}
             onChange={setFilters}
+            onViewModeChange={setViewMode}
           />
         </aside>
-        <MapViewer result={result} filters={filters} />
+        <MapViewer result={result} filters={filters} viewMode={viewMode} />
       </section>
     </main>
   );

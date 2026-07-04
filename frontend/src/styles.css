@@ -214,10 +214,96 @@ select {
   gap: 12px;
 }
 
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid #344153;
+  border-radius: 8px;
+  background: #121922;
+}
+
+.mode-switch button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 6px;
+  color: #bac5d1;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mode-switch button.active {
+  color: #ffffff;
+  background: #1f8d6a;
+}
+
+.mode-switch button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .filter-panel label {
   display: grid;
   gap: 6px;
   color: #bac5d1;
+}
+
+.round-picker {
+  display: grid;
+  gap: 8px;
+  color: #bac5d1;
+}
+
+.round-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.round-picker-header button {
+  min-height: 28px;
+  border: 1px solid #39485a;
+  border-radius: 6px;
+  padding: 0 10px;
+  color: #e8edf3;
+  background: #1b2530;
+  cursor: pointer;
+}
+
+.round-picker-header button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.round-check-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  max-height: 168px;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid #344153;
+  border-radius: 8px;
+  background: #121922;
+}
+
+.round-check {
+  display: inline-flex !important;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px !important;
+  border: 1px solid #344153;
+  border-radius: 6px;
+  color: #c9d4df !important;
+  background: #18212c;
+  font-size: 13px;
+}
+
+.round-check input {
+  margin: 0;
 }
 
 .check-row {
@@ -271,6 +357,36 @@ select {
   color: #9ba8b6;
 }
 
+.playback-controls {
+  display: grid;
+  grid-template-columns: auto auto minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: min(100%, 82vh);
+  margin: 12px auto 0;
+  padding: 10px;
+  border: 1px solid #2b3747;
+  border-radius: 8px;
+  background: #18212c;
+}
+
+.playback-play {
+  border-color: #1f8d6a;
+  background: #1f8d6a;
+}
+
+.playback-controls input[type="range"] {
+  width: 100%;
+  accent-color: #1f8d6a;
+}
+
+.playback-time {
+  min-width: 82px;
+  color: #c9d4df;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 @media (max-width: 880px) {
   .toolbar-grid,
   .upload-panel {
@@ -288,5 +404,14 @@ select {
   .sidebar {
     border-right: 0;
     border-bottom: 1px solid #263241;
+  }
+
+  .playback-controls {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+
+  .playback-time {
+    grid-column: 1 / -1;
+    text-align: left;
   }
 }
