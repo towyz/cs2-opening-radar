@@ -30,6 +30,10 @@ class Settings(BaseModel):
     def map_config_path(self) -> Path:
         return self.repo_dir / "assets" / "maps" / "de_dust2" / "map.json"
 
+    @property
+    def local_demo_config_path(self) -> Path:
+        return self.backend_dir / "local_demo_config.json"
+
 
 @lru_cache
 def get_settings() -> Settings:

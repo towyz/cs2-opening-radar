@@ -63,3 +63,19 @@ npm install
 npm run dev
 ```
 
+## Local Demo Import
+
+Create `backend/local_demo_config.json` from `backend/local_demo_config.example.json` and fill in the directories that contain your local `.dem` or `.zip` demo files.
+
+Example:
+
+```json
+{
+  "demoDirectories": [
+    "C:/Users/your-name/AppData/Roaming/Wmpvp/demo",
+    "D:/csgodemocache"
+  ]
+}
+```
+
+The backend only scans and analyzes files under these configured directories. Zip files are supported when they contain a `.dem` entry.

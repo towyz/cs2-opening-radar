@@ -5,6 +5,19 @@ export interface AnalyzeResponse {
   result: AnalysisResult;
 }
 
+export interface LocalDemoItem {
+  path: string;
+  name: string;
+  size: number;
+  modifiedTime: string;
+  kind: string;
+}
+
+export interface LocalDemoListResponse {
+  configPath: string;
+  demos: LocalDemoItem[];
+}
+
 export class ApiError extends Error {
   detail: unknown;
 
@@ -41,4 +54,48 @@ export async function analyzeDemo(params: {
     throw new ApiError(message, detail);
   }
   return payload as AnalyzeResponse;
+}
+
+export async function listLocalDemos(): Promise<LocalDemoListResponse> {
+  const response = await fetch("/api/local-demos");
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw apiErrorFromPayload(payload);
+  }
+  return payload as LocalDemoListResponse;
+}
+
+export async function analyzeLocalDemo(params: {
+  path: string;
+  steam64: string;
+  mapName?: string;
+  windowSeconds?: number;
+}): Promise<AnalyzeResponse> {
+  const response = await fetch("/api/analyze-local", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      path: params.path,
+      steam64: params.steam64,
+      map_name: params.mapName ?? "de_dust2",
+      window_seconds: params.windowSeconds ?? 30
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw apiErrorFromPayload(payload);
+  }
+  return payload as AnalyzeResponse;
+}
+
+function apiErrorFromPayload(payload: unknown): ApiError {
+  const detail =
+    typeof payload === "object" && payload && "detail" in payload
+      ? (payload as { detail: unknown }).detail
+      : payload;
+  const message =
+    typeof detail === "object" && detail && "message" in detail
+      ? String((detail as { message: unknown }).message)
+      : "Analysis failed";
+  return new ApiError(message, detail);
 }

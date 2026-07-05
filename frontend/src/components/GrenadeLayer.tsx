@@ -1,5 +1,10 @@
 import type { GrenadeType, RoundAnalysis } from "../types/analysis";
 
+type DisplayRound = RoundAnalysis & {
+  roundKey?: string;
+  demoLabel?: string;
+};
+
 const grenadeColors: Record<GrenadeType, string> = {
   smoke: "#9aa4ad",
   flash: "#fff176",
@@ -13,7 +18,7 @@ export function GrenadeLayer({
   rounds,
   grenadeType
 }: {
-  rounds: RoundAnalysis[];
+  rounds: DisplayRound[];
   grenadeType: GrenadeType | "ALL";
 }) {
   return (
@@ -27,7 +32,7 @@ export function GrenadeLayer({
               .map((point) => `${point.map.x},${point.map.y}`)
               .join(" ");
             return (
-              <g key={`grenade-${round.roundNumber}-${index}`}>
+              <g key={`grenade-${roundIdentity(round)}-${index}`}>
                 {points ? (
                   <polyline
                     points={points}
@@ -46,7 +51,7 @@ export function GrenadeLayer({
                   stroke="#10151d"
                   strokeWidth="2"
                 >
-                  <title>{`${grenade.type} R${round.roundNumber} ${grenade.throwTimeFromFreezeEnd.toFixed(1)}s`}</title>
+                  <title>{`${grenade.type} ${roundTitle(round)} ${grenade.throwTimeFromFreezeEnd.toFixed(1)}s`}</title>
                 </circle>
                 {grenade.detonatePosition ? (
                   <rect
@@ -67,3 +72,10 @@ export function GrenadeLayer({
   );
 }
 
+function roundIdentity(round: DisplayRound): string {
+  return round.roundKey ?? `${round.roundNumber}`;
+}
+
+function roundTitle(round: DisplayRound): string {
+  return round.demoLabel ? `${round.demoLabel} R${round.roundNumber}` : `R${round.roundNumber}`;
+}
