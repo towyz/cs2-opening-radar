@@ -4,7 +4,7 @@ import type { Filters } from "./FilterPanel";
 import { GrenadeLayer } from "./GrenadeLayer";
 import { PlaybackLayer } from "./PlaybackLayer";
 import { TrajectoryLayer } from "./TrajectoryLayer";
-import type { AnalysisResult } from "../types/analysis";
+import type { AnalysisResult, RoundAnalysis } from "../types/analysis";
 import type { ViewMode } from "./FilterPanel";
 
 const localRadarSrc = "/maps/de_dust2/radar.png";
@@ -12,30 +12,45 @@ const simpleRadarDust2Src =
   "https://cdn.prod.website-files.com/5d5ab0de3f2789196e87264e/5f9999ea1057522149823f0a_de_dust2_radar_Pano0Pat1Buy1Spec0.png";
 
 export function MapViewer({
-  result,
+  results,
   filters,
   viewMode
 }: {
-  result: AnalysisResult | null;
+  results: AnalysisResult[];
   filters: Filters;
   viewMode: ViewMode;
 }) {
-  const rounds = useMemo(() => (result?.rounds ?? []).filter((round) => {
-    if (!round.valid) return false;
-    if (filters.side !== "ALL" && round.side !== filters.side) return false;
-    return true;
-  }), [filters.side, result]);
+  const rounds = useMemo(
+    () =>
+      results.flatMap((result, demoIndex) => {
+        const selectedDemo = filters.demoIndices.includes(demoIndex);
+        if (!selectedDemo) return [];
+        return result.rounds
+          .filter((round) => {
+            if (!round.valid) return false;
+            if (filters.side !== "ALL" && round.side !== filters.side) return false;
+            return true;
+          })
+          .map((round) => ({
+            ...round,
+            roundKey: roundKey(demoIndex, round.roundNumber),
+            demoIndex,
+            demoLabel: demoLabel(result, demoIndex)
+          }));
+      }),
+    [filters.demoIndices, filters.side, results]
+  );
   const overviewRounds = useMemo(
     () =>
-      rounds.filter((round) => filters.roundNumber === "ALL" || round.roundNumber === filters.roundNumber),
-    [filters.roundNumber, rounds]
+      rounds.filter((round) => filters.roundKey === "ALL" || round.roundKey === filters.roundKey),
+    [filters.roundKey, rounds]
   );
   const playbackRounds = useMemo(
     () =>
-      rounds.filter((round) => filters.playbackRoundNumbers.includes(round.roundNumber)),
-    [filters.playbackRoundNumbers, rounds]
+      rounds.filter((round) => filters.playbackRoundKeys.includes(round.roundKey)),
+    [filters.playbackRoundKeys, rounds]
   );
-  const duration = Math.min(result?.meta.windowSeconds ?? 30, 30);
+  const duration = Math.min(Math.max(...results.map((result) => result.meta.windowSeconds), 30), 30);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [radarSrc, setRadarSrc] = useState(localRadarSrc);
@@ -45,7 +60,7 @@ export function MapViewer({
   useEffect(() => {
     setCurrentTime(0);
     setIsPlaying(false);
-  }, [filters.playbackRoundNumbers, result, viewMode]);
+  }, [filters.playbackRoundKeys, results, viewMode]);
 
   useEffect(() => {
     if (!isPlaying || viewMode !== "playback" || playbackRounds.length === 0) {
@@ -118,12 +133,12 @@ export function MapViewer({
             </>
           )}
         </svg>
-        {!result ? <div className="empty-state">Upload a Dust2 demo to render opening paths.</div> : null}
-        {result && showPlayback && !hasPlaybackRounds ? (
+        {results.length === 0 ? <div className="empty-state">Upload a Dust2 demo to render opening paths.</div> : null}
+        {results.length > 0 && showPlayback && !hasPlaybackRounds ? (
           <div className="empty-state">Select one or more valid rounds to start playback.</div>
         ) : null}
       </div>
-      {result && showPlayback ? (
+      {results.length > 0 && showPlayback ? (
         <div className="playback-controls">
           <button
             type="button"
@@ -169,4 +184,18 @@ export function MapViewer({
       ) : null}
     </section>
   );
+}
+
+export type DisplayRound = RoundAnalysis & {
+  roundKey: string;
+  demoIndex: number;
+  demoLabel: string;
+};
+
+function demoLabel(result: AnalysisResult, index: number): string {
+  return `D${index + 1} ${result.meta.demoFile}`;
+}
+
+function roundKey(demoIndex: number, roundNumber: number): string {
+  return `${demoIndex}:${roundNumber}`;
 }

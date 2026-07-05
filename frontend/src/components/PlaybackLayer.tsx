@@ -6,6 +6,12 @@ import type {
   TrajectoryPoint
 } from "../types/analysis";
 
+type PlaybackRoundAnalysis = RoundAnalysis & {
+  roundKey?: string;
+  demoIndex?: number;
+  demoLabel?: string;
+};
+
 const sideColors: Record<string, string> = {
   T: "#ffb000",
   CT: "#31b7ff",
@@ -28,7 +34,7 @@ export function PlaybackLayer({
   showPath,
   showGrenades
 }: {
-  rounds: RoundAnalysis[];
+  rounds: PlaybackRoundAnalysis[];
   currentTime: number;
   grenadeType: GrenadeType | "ALL";
   showPath: boolean;
@@ -38,7 +44,7 @@ export function PlaybackLayer({
     <g>
       {rounds.map((round, index) => (
         <PlaybackRound
-          key={`playback-round-${round.roundNumber}`}
+          key={`playback-round-${roundIdentity(round)}`}
           round={round}
           currentTime={currentTime}
           grenadeType={grenadeType}
@@ -59,7 +65,7 @@ function PlaybackRound({
   showGrenades,
   color
 }: {
-  round: RoundAnalysis;
+  round: PlaybackRoundAnalysis;
   currentTime: number;
   grenadeType: GrenadeType | "ALL";
   showPath: boolean;
@@ -75,7 +81,7 @@ function PlaybackRound({
             .filter((grenade) => grenadeType === "ALL" || grenade.type === grenadeType)
             .map((grenade, index) => (
               <PlaybackGrenade
-                key={`playback-grenade-${round.roundNumber}-${index}`}
+                key={`playback-grenade-${roundIdentity(round)}-${index}`}
                 grenade={grenade}
                 currentTime={currentTime}
                 roundColor={color}
@@ -93,20 +99,7 @@ function PlaybackRound({
             strokeWidth="4"
           />
           <circle cx={playerPosition.x} cy={playerPosition.y} r="4" fill="#ffffff" opacity="0.95" />
-          <text
-            x={playerPosition.x}
-            y={playerPosition.y - 18}
-            textAnchor="middle"
-            fill="#ffffff"
-            stroke="#0c1118"
-            strokeWidth="4"
-            paintOrder="stroke"
-            fontSize="18"
-            fontWeight="700"
-          >
-            R{round.roundNumber}
-          </text>
-          <title>{`R${round.roundNumber} ${currentTime.toFixed(1)}s`}</title>
+          <title>{`${roundTitle(round)} ${currentTime.toFixed(1)}s`}</title>
         </g>
       ) : null}
     </g>
@@ -373,4 +366,12 @@ function roundColor(round: RoundAnalysis, index: number): string {
   if (index === 0) return base;
   const palette = ["#ff6b6b", "#8ce99a", "#74c0fc", "#ffd43b", "#da77f2", "#63e6be", "#ffa94d"];
   return palette[(index - 1) % palette.length];
+}
+
+function roundIdentity(round: PlaybackRoundAnalysis): string {
+  return round.roundKey ?? `${round.demoIndex ?? 0}:${round.roundNumber}`;
+}
+
+function roundTitle(round: PlaybackRoundAnalysis): string {
+  return round.demoLabel ? `${round.demoLabel} R${round.roundNumber}` : `R${round.roundNumber}`;
 }

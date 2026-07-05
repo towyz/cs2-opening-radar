@@ -8,24 +8,45 @@ import { UploadPanel } from "./components/UploadPanel";
 import type { AnalysisResult } from "./types/analysis";
 
 const defaultFilters: Filters = {
+  demoIndices: [],
   side: "ALL",
-  roundNumber: "ALL",
-  playbackRoundNumbers: [],
+  roundKey: "ALL",
+  playbackRoundKeys: [],
   grenadeType: "ALL",
   showPath: true,
   showGrenades: true
 };
 
 export default function App() {
-  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [results, setResults] = useState<AnalysisResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
 
+  const hasResults = results.length > 0;
+  const demoOptions = useMemo(
+    () =>
+      results.map((result, index) => ({
+        index,
+        label: demoLabel(result, index),
+        title: result.meta.demoFile
+      })),
+    [results]
+  );
   const roundOptions = useMemo(
-    () => result?.rounds.filter((round) => round.valid).map((round) => round.roundNumber) ?? [],
-    [result]
+    () =>
+      results.flatMap((result, demoIndex) =>
+        result.rounds
+          .filter((round) => round.valid)
+          .map((round) => ({
+            key: roundKey(demoIndex, round.roundNumber),
+            label: `D${demoIndex + 1} R${round.roundNumber}`,
+            roundNumber: round.roundNumber,
+            demoIndex
+          }))
+      ),
+    [results]
   );
 
   async function handleAnalyze(demo: File, steam64: string) {
@@ -33,9 +54,7 @@ export default function App() {
     setError(null);
     try {
       const response = await analyzeDemo({ demo, steam64 });
-      setResult(response.result);
-      setFilters(defaultFilters);
-      setViewMode("overview");
+      appendResult(response.result);
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -48,14 +67,31 @@ export default function App() {
     setError(null);
     try {
       const response = await analyzeLocalDemo({ path, steam64 });
-      setResult(response.result);
-      setFilters(defaultFilters);
-      setViewMode("overview");
+      appendResult(response.result);
     } catch (err) {
       setError(formatError(err));
     } finally {
       setLoading(false);
     }
+  }
+
+  function appendResult(nextResult: AnalysisResult) {
+    const nextResults = [...results, nextResult];
+    setResults(nextResults);
+    setFilters((currentFilters) => ({
+      ...currentFilters,
+      demoIndices: nextResults.map((_, index) => index),
+      roundKey: "ALL",
+      playbackRoundKeys: []
+    }));
+    setViewMode("overview");
+  }
+
+  function handleClearResults() {
+    setResults([]);
+    setFilters(defaultFilters);
+    setViewMode("overview");
+    setError(null);
   }
 
   return (
@@ -69,20 +105,37 @@ export default function App() {
 
       <section className="workspace-grid">
         <aside className="sidebar">
-          <OpponentCard result={result} />
+          <OpponentCard results={results} onClear={handleClearResults} />
           <FilterPanel
             filters={filters}
             viewMode={viewMode}
+            demos={demoOptions}
             rounds={roundOptions}
-            disabled={!result}
+            disabled={!hasResults}
             onChange={setFilters}
             onViewModeChange={setViewMode}
           />
         </aside>
-        <MapViewer result={result} filters={filters} viewMode={viewMode} />
+        <MapViewer results={results} filters={filters} viewMode={viewMode} />
       </section>
     </main>
   );
+}
+
+function demoLabel(result: AnalysisResult, index: number): string {
+  return `D${index + 1} ${shortDemoName(result.meta.demoFile)}`;
+}
+
+function roundKey(demoIndex: number, roundNumber: number): string {
+  return `${demoIndex}:${roundNumber}`;
+}
+
+function shortDemoName(fileName: string): string {
+  const stem = fileName.replace(/\.(dem|zip|bz2)$/i, "");
+  if (stem.length <= 12) {
+    return fileName;
+  }
+  return `${stem.slice(0, 8)}...${stem.slice(-4)}${fileName.slice(stem.length)}`;
 }
 
 function formatError(err: unknown): string {

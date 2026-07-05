@@ -1,12 +1,17 @@
 import type { RoundAnalysis } from "../types/analysis";
 
+type DisplayRound = RoundAnalysis & {
+  roundKey?: string;
+  demoLabel?: string;
+};
+
 const sideColors: Record<string, string> = {
   T: "#ffb000",
   CT: "#31b7ff",
   UNKNOWN: "#d6dde7"
 };
 
-export function TrajectoryLayer({ rounds }: { rounds: RoundAnalysis[] }) {
+export function TrajectoryLayer({ rounds }: { rounds: DisplayRound[] }) {
   return (
     <g>
       {rounds.map((round) => {
@@ -16,7 +21,7 @@ export function TrajectoryLayer({ rounds }: { rounds: RoundAnalysis[] }) {
         const end = round.path[round.path.length - 1];
         const color = sideColors[round.side] ?? sideColors.UNKNOWN;
         return (
-          <g key={`path-${round.roundNumber}`}>
+          <g key={`path-${roundIdentity(round)}`}>
             <polyline
               points={points}
               fill="none"
@@ -27,10 +32,10 @@ export function TrajectoryLayer({ rounds }: { rounds: RoundAnalysis[] }) {
               opacity="0.84"
             />
             <circle cx={start.map.x} cy={start.map.y} r="7" fill={color}>
-              <title>{`R${round.roundNumber} start ${round.side}`}</title>
+              <title>{`${roundTitle(round)} start ${round.side}`}</title>
             </circle>
             <circle cx={end.map.x} cy={end.map.y} r="7" fill="#ffffff" stroke={color} strokeWidth="3">
-              <title>{`R${round.roundNumber} end ${end.timeFromFreezeEnd.toFixed(1)}s`}</title>
+              <title>{`${roundTitle(round)} end ${end.timeFromFreezeEnd.toFixed(1)}s`}</title>
             </circle>
           </g>
         );
@@ -39,3 +44,10 @@ export function TrajectoryLayer({ rounds }: { rounds: RoundAnalysis[] }) {
   );
 }
 
+function roundIdentity(round: DisplayRound): string {
+  return round.roundKey ?? `${round.roundNumber}`;
+}
+
+function roundTitle(round: DisplayRound): string {
+  return round.demoLabel ? `${round.demoLabel} R${round.roundNumber}` : `R${round.roundNumber}`;
+}
