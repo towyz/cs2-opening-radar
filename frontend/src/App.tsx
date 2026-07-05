@@ -1,9 +1,16 @@
 import { useMemo, useState } from "react";
-import { ApiError, analyzeDemo, analyzeLocalDemo } from "./api/client";
+import {
+  ApiError,
+  analyzeDemo,
+  analyzeLocalDemo,
+  importPerfectWorldRecentDust2,
+  type PerfectWorldRecentResponse
+} from "./api/client";
 import { FilterPanel, type Filters, type ViewMode } from "./components/FilterPanel";
 import { LocalDemoPanel } from "./components/LocalDemoPanel";
 import { MapViewer } from "./components/MapViewer";
 import { OpponentCard } from "./components/OpponentCard";
+import { PerfectWorldPanel } from "./components/PerfectWorldPanel";
 import { UploadPanel } from "./components/UploadPanel";
 import type { AnalysisResult } from "./types/analysis";
 
@@ -75,8 +82,35 @@ export default function App() {
     }
   }
 
+  async function handleImportPerfectWorld(uid: string, steam64?: string): Promise<PerfectWorldRecentResponse> {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await importPerfectWorldRecentDust2({ uid, steam64, limit: 5 });
+      appendResults(response.results);
+      if (response.imported.length === 0 && response.scanned === 0) {
+        setError("No recent Perfect World dust2 demo candidates were returned for this UID.");
+      } else if (response.imported.length === 0) {
+        setError(`No matching dust2 demos found for this Steam64. Scanned ${response.scanned}, downloaded ${response.downloaded}.`);
+      }
+      return response;
+    } catch (err) {
+      setError(formatError(err));
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function appendResult(nextResult: AnalysisResult) {
-    const nextResults = [...results, nextResult];
+    appendResults([nextResult]);
+  }
+
+  function appendResults(nextBatch: AnalysisResult[]) {
+    if (nextBatch.length === 0) {
+      return;
+    }
+    const nextResults = [...results, ...nextBatch];
     setResults(nextResults);
     setFilters((currentFilters) => ({
       ...currentFilters,
@@ -100,6 +134,7 @@ export default function App() {
         <div className="toolbar-grid">
           <UploadPanel loading={loading} error={error} onAnalyze={handleAnalyze} />
           <LocalDemoPanel loading={loading} onAnalyze={handleAnalyzeLocal} />
+          <PerfectWorldPanel loading={loading} onImport={handleImportPerfectWorld} />
         </div>
       </section>
 

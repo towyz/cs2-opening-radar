@@ -26,3 +26,13 @@ class AnalyzeLocalRequest(BaseModel):
     steam64: str
     map_name: str = "de_dust2"
     window_seconds: int = 30
+
+
+class PerfectWorldRecentRequest(BaseModel):
+    uid: str | None = None
+    steam64: str | None = None
+    access_token: str | None = None
+    pwa_jt: str | None = None
+    login_steam64: str | None = None
+    limit: int = 5
+    window_seconds: int = 30

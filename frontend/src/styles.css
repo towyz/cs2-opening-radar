@@ -22,6 +22,8 @@ select {
 
 .app-shell {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: #10151d;
 }
 
@@ -33,31 +35,61 @@ select {
 
 .toolbar-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .upload-panel {
   display: grid;
-  grid-template-columns: minmax(180px, 1.2fr) minmax(160px, 1fr) auto;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 0.65fr);
+  gap: 10px;
   align-items: center;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #2b3747;
+  border-radius: 8px;
+  background: #18212c;
 }
 
 .local-demo-panel {
   display: grid;
-  grid-template-columns: auto minmax(220px, 1fr) minmax(150px, 0.6fr) auto;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: center;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #2b3747;
+  border-radius: 8px;
+  background: #18212c;
 }
 
 .local-demo-header {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   color: #c9d4df;
-  white-space: nowrap;
+}
+
+.perfectworld-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #2b3747;
+  border-radius: 8px;
+  background: #18212c;
+}
+
+.perfectworld-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #c9d4df;
 }
 
 .icon-button {
@@ -78,6 +110,8 @@ select {
 }
 
 .local-demo-select {
+  grid-column: 1 / -1;
+  width: 100%;
   min-width: 0;
 }
 
@@ -88,9 +122,37 @@ select {
   overflow-wrap: anywhere;
 }
 
+.import-report {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #344153;
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: #c9d4df;
+  background: #121922;
+  font-size: 12px;
+}
+
+.import-report p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.import-report ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: #9ba8b6;
+}
+
 .file-control,
 .primary-button {
   display: inline-flex;
+  width: 100%;
+  min-width: 0;
   min-height: 40px;
   align-items: center;
   justify-content: center;
@@ -108,6 +170,23 @@ select {
   overflow: hidden;
 }
 
+.file-control span,
+.primary-button span,
+.local-demo-header span,
+.perfectworld-title span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-panel .primary-button,
+.upload-panel .inline-error,
+.perfectworld-title,
+.perfectworld-panel .primary-button {
+  grid-column: 1 / -1;
+}
+
 .file-control input {
   position: absolute;
   inset: 0;
@@ -117,6 +196,8 @@ select {
 
 .steam-input,
 select {
+  width: 100%;
+  min-width: 0;
   min-height: 40px;
   border: 1px solid #39485a;
   border-radius: 6px;
@@ -138,6 +219,7 @@ select {
 }
 
 .inline-error {
+  grid-column: 1 / -1;
   margin: 0;
   color: #ff8f8f;
 }
@@ -145,7 +227,8 @@ select {
 .workspace-grid {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
-  min-height: calc(100vh - 69px);
+  flex: 1;
+  min-height: 0;
 }
 
 .sidebar {
@@ -493,7 +576,8 @@ select {
 
 @media (max-width: 880px) {
   .toolbar-grid,
-  .upload-panel {
+  .upload-panel,
+  .perfectworld-panel {
     grid-template-columns: 1fr;
   }
 

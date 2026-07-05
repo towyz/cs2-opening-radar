@@ -3,11 +3,12 @@ from uuid import uuid4
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
-from app.api.schemas import AnalyzeLocalRequest
+from app.api.schemas import AnalyzeLocalRequest, PerfectWorldRecentRequest
 from app.config import get_settings
 from app.models.analysis_result import AnalysisResult
 from app.services.local_demo_store import list_local_demos, prepare_local_demo
 from app.services.parser_runner import ParserRunError, run_parser
+from app.services.perfectworld_demo_importer import PerfectWorldCredentialsError, import_recent_dust2_demos
 from app.services.result_store import read_result
 
 router = APIRouter()
@@ -91,6 +92,73 @@ async def analyze_local(request: AnalyzeLocalRequest) -> dict[str, object]:
         request.map_name,
         request.window_seconds,
     )
+
+
+@router.post("/perfectworld/recent-dust2-demos")
+async def perfectworld_recent_dust2_demos(request: PerfectWorldRecentRequest) -> dict[str, object]:
+    settings = get_settings()
+    if request.steam64:
+        validate_analysis_request(settings.supported_map, request.steam64, request.window_seconds)
+    if not (request.uid or request.steam64):
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_ARGUMENT", "message": "uid or steam64 is required"},
+        )
+    if request.limit < 1 or request.limit > 10:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_ARGUMENT", "message": "limit must be between 1 and 10"},
+        )
+
+    try:
+        target_uid = (request.steam64 or request.uid or "").strip()
+        report = import_recent_dust2_demos(
+            perfect_uid=target_uid,
+            steam64=request.steam64.strip() if request.steam64 else None,
+            access_token=request.access_token,
+            pwa_jt=request.pwa_jt,
+            login_steam64=request.login_steam64,
+            limit=request.limit,
+            window_seconds=request.window_seconds,
+            uploads_dir=settings.uploads_dir,
+            results_dir=settings.results_dir,
+            download_dir=settings.perfectworld_demos_dir,
+            parser_bin=settings.parser_bin,
+            map_config_path=settings.map_config_path,
+            signer_bridge_path=settings.perfectworld_signer_bridge_path,
+        )
+    except PerfectWorldCredentialsError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "PERFECTWORLD_CREDENTIALS_REQUIRED",
+                "message": str(exc),
+            },
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "PERFECTWORLD_REQUEST_FAILED",
+                "message": str(exc),
+            },
+        ) from exc
+    return {
+        "results": [item.result.model_dump(mode="json") for item in report.imported if item.result is not None],
+        "imported": [
+            {
+                "matchId": item.match_id,
+                "path": str(item.source_path),
+                "demoFile": item.result.meta.demoFile if item.result is not None else item.source_path.name,
+            }
+            for item in report.imported
+        ],
+        "scanned": report.scanned,
+        "downloaded": report.downloaded,
+        "skipped": report.skipped,
+        "source": report.source,
+        "notice": report.notice,
+    }
 
 
 def validate_analysis_request(map_name: str, steam64: str, window_seconds: int) -> None:

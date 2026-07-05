@@ -18,6 +18,22 @@ export interface LocalDemoListResponse {
   demos: LocalDemoItem[];
 }
 
+export interface PerfectWorldImportItem {
+  matchId: string;
+  path: string;
+  demoFile: string;
+}
+
+export interface PerfectWorldRecentResponse {
+  results: AnalysisResult[];
+  imported: PerfectWorldImportItem[];
+  scanned: number;
+  downloaded: number;
+  skipped: string[];
+  source: "perfectworld_api";
+  notice?: string | null;
+}
+
 export class ApiError extends Error {
   detail: unknown;
 
@@ -86,6 +102,29 @@ export async function analyzeLocalDemo(params: {
     throw apiErrorFromPayload(payload);
   }
   return payload as AnalyzeResponse;
+}
+
+export async function importPerfectWorldRecentDust2(params: {
+  uid: string;
+  steam64?: string;
+  limit?: number;
+  windowSeconds?: number;
+}): Promise<PerfectWorldRecentResponse> {
+  const response = await fetch("/api/perfectworld/recent-dust2-demos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      uid: params.uid,
+      steam64: params.steam64 || undefined,
+      limit: params.limit ?? 5,
+      window_seconds: params.windowSeconds ?? 30
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw apiErrorFromPayload(payload);
+  }
+  return payload as PerfectWorldRecentResponse;
 }
 
 function apiErrorFromPayload(payload: unknown): ApiError {

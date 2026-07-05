@@ -23,6 +23,10 @@ class Settings(BaseModel):
         return self.storage_dir / "results"
 
     @property
+    def perfectworld_demos_dir(self) -> Path:
+        return self.storage_dir / "perfectworld_demos"
+
+    @property
     def parser_bin(self) -> Path:
         return self.repo_dir / "parser-go" / "bin" / "cs2-demo-parser.exe"
 
@@ -34,10 +38,15 @@ class Settings(BaseModel):
     def local_demo_config_path(self) -> Path:
         return self.backend_dir / "local_demo_config.json"
 
+    @property
+    def perfectworld_signer_bridge_path(self) -> Path:
+        return self.repo_dir / "tools" / "perfectworld_signer_bridge" / "signer_bridge.js"
+
 
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings()
     settings.uploads_dir.mkdir(parents=True, exist_ok=True)
     settings.results_dir.mkdir(parents=True, exist_ok=True)
+    settings.perfectworld_demos_dir.mkdir(parents=True, exist_ok=True)
     return settings
