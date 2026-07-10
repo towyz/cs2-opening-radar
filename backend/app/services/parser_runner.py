@@ -51,3 +51,40 @@ def run_parser(
             detail = {"code": "DEMO_PARSE_FAILED", "message": stderr or "Go parser failed"}
         raise ParserRunError("Go parser failed", detail=detail)
 
+
+def run_player_scan(
+    parser_bin: Path,
+    demo_path: Path,
+    map_name: str,
+    map_config_path: Path,
+    output_path: Path,
+) -> None:
+    if not parser_bin.exists():
+        raise ParserRunError(
+            "Go parser binary is missing",
+            {
+                "code": "DEMO_PARSE_FAILED",
+                "message": f"Go parser binary not found at {parser_bin}",
+            },
+        )
+
+    cmd = [
+        str(parser_bin),
+        "--demo",
+        str(demo_path),
+        "--map",
+        map_name,
+        "--map-config",
+        str(map_config_path),
+        "--out",
+        str(output_path),
+        "--list-players",
+    ]
+    completed = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        stderr = completed.stderr.strip()
+        try:
+            detail = json.loads(stderr)
+        except json.JSONDecodeError:
+            detail = {"code": "DEMO_PARSE_FAILED", "message": stderr or "Go parser failed"}
+        raise ParserRunError("Go parser failed", detail=detail)

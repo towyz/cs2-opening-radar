@@ -5,6 +5,26 @@ export interface AnalyzeResponse {
   result: AnalysisResult;
 }
 
+export interface AnalyzePlayerResponse {
+  taskIds: string[];
+  results: AnalysisResult[];
+}
+
+export interface PlayerOption {
+  name: string;
+  steam64: string;
+}
+
+export interface ImportedDemo {
+  id: string;
+  name: string;
+}
+
+export interface ImportDemoResponse {
+  demo: ImportedDemo;
+  players: PlayerOption[];
+}
+
 export interface LocalDemoItem {
   path: string;
   name: string;
@@ -56,6 +76,25 @@ export async function analyzeDemo(params: {
   return payload as AnalyzeResponse;
 }
 
+export async function importDemo(params: {
+  demo: File;
+  mapName?: string;
+}): Promise<ImportDemoResponse> {
+  const form = new FormData();
+  form.append("demo", params.demo);
+  form.append("map_name", params.mapName ?? "de_dust2");
+
+  const response = await fetch("/api/import-demo", {
+    method: "POST",
+    body: form
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw apiErrorFromPayload(payload);
+  }
+  return payload as ImportDemoResponse;
+}
+
 export async function listLocalDemos(): Promise<LocalDemoListResponse> {
   const response = await fetch("/api/local-demos");
   const payload = await response.json().catch(() => ({}));
@@ -86,6 +125,48 @@ export async function analyzeLocalDemo(params: {
     throw apiErrorFromPayload(payload);
   }
   return payload as AnalyzeResponse;
+}
+
+export async function importLocalDemo(params: {
+  path: string;
+  mapName?: string;
+}): Promise<ImportDemoResponse> {
+  const response = await fetch("/api/import-local-demo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      path: params.path,
+      map_name: params.mapName ?? "de_dust2"
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw apiErrorFromPayload(payload);
+  }
+  return payload as ImportDemoResponse;
+}
+
+export async function analyzePlayer(params: {
+  demoIds: string[];
+  steam64: string;
+  mapName?: string;
+  windowSeconds?: number;
+}): Promise<AnalyzePlayerResponse> {
+  const response = await fetch("/api/analyze-player", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      demo_ids: params.demoIds,
+      steam64: params.steam64,
+      map_name: params.mapName ?? "de_dust2",
+      window_seconds: params.windowSeconds ?? 30
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw apiErrorFromPayload(payload);
+  }
+  return payload as AnalyzePlayerResponse;
 }
 
 function apiErrorFromPayload(payload: unknown): ApiError {

@@ -4,14 +4,13 @@ import { listLocalDemos, type LocalDemoItem } from "../api/client";
 
 interface LocalDemoPanelProps {
   loading: boolean;
-  onAnalyze: (path: string, steam64: string) => void;
+  onImport: (path: string) => void;
 }
 
-export function LocalDemoPanel({ loading, onAnalyze }: LocalDemoPanelProps) {
+export function LocalDemoPanel({ loading, onImport }: LocalDemoPanelProps) {
   const [demos, setDemos] = useState<LocalDemoItem[]>([]);
   const [configPath, setConfigPath] = useState("");
   const [selectedPath, setSelectedPath] = useState("");
-  const [steam64, setSteam64] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -36,8 +35,8 @@ export function LocalDemoPanel({ loading, onAnalyze }: LocalDemoPanelProps) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (selectedPath && steam64.trim()) {
-      onAnalyze(selectedPath, steam64.trim());
+    if (selectedPath) {
+      onImport(selectedPath);
     }
   }
 
@@ -66,15 +65,9 @@ export function LocalDemoPanel({ loading, onAnalyze }: LocalDemoPanelProps) {
           ))
         )}
       </select>
-      <input
-        className="steam-input"
-        placeholder="Steam64"
-        value={steam64}
-        onChange={(event) => setSteam64(event.target.value)}
-      />
-      <button className="primary-button" disabled={!selectedPath || !steam64.trim() || loading}>
+      <button className="primary-button" disabled={!selectedPath || loading}>
         <Play size={18} />
-        <span>{loading ? "Parsing" : "Analyze local"}</span>
+        <span>{loading ? "Reading" : "Add local"}</span>
       </button>
       {error ? <p className="inline-error">{error}</p> : null}
       {!error && demos.length === 0 ? (

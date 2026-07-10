@@ -56,6 +56,31 @@ func Analyze(opts Options) (*AnalysisResult, error) {
 	return result, nil
 }
 
+func ListPlayers(opts Options) ([]Player, error) {
+	if _, err := os.Stat(opts.DemoPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, &CodedError{Code: "DEMO_FILE_NOT_FOUND", Message: "Demo file was not found"}
+		}
+		return nil, &CodedError{Code: "DEMO_PARSE_FAILED", Message: err.Error()}
+	}
+
+	result := newEmptyResult(opts)
+	seenPlayers := map[string]bool{}
+	err := demoinfocs.ParseFile(opts.DemoPath, func(parser demoinfocs.Parser) error {
+		parser.RegisterEventHandler(func(events.RoundFreezetimeEnd) {
+			collectPlayers(parser, result, seenPlayers)
+		})
+		parser.RegisterEventHandler(func(events.FrameDone) {
+			collectPlayers(parser, result, seenPlayers)
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, &CodedError{Code: "DEMO_PARSE_FAILED", Message: fmt.Sprintf("failed to parse demo: %v", err)}
+	}
+	return result.Players, nil
+}
+
 func parseDemo(opts Options) (*AnalysisResult, error) {
 	result := newEmptyResult(opts)
 	state := &parseState{

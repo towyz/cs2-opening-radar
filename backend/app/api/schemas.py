@@ -26,3 +26,30 @@ class AnalyzeLocalRequest(BaseModel):
     steam64: str
     map_name: str = "de_dust2"
     window_seconds: int = 30
+
+
+class ImportLocalDemoRequest(BaseModel):
+    path: str
+    map_name: str = "de_dust2"
+
+
+class ImportedDemo(BaseModel):
+    id: str
+    name: str
+
+
+class PlayerOption(BaseModel):
+    name: str
+    steam64: str
+
+
+class ImportDemoResponse(BaseModel):
+    demo: ImportedDemo
+    players: list[PlayerOption]
+
+
+class AnalyzePlayerRequest(BaseModel):
+    demo_ids: list[str]
+    steam64: str
+    map_name: str = "de_dust2"
+    window_seconds: int = 30

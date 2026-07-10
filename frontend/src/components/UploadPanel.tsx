@@ -4,17 +4,16 @@ import { FormEvent, useState } from "react";
 interface UploadPanelProps {
   loading: boolean;
   error: string | null;
-  onAnalyze: (demo: File, steam64: string) => void;
+  onImport: (demo: File) => void;
 }
 
-export function UploadPanel({ loading, error, onAnalyze }: UploadPanelProps) {
+export function UploadPanel({ loading, error, onImport }: UploadPanelProps) {
   const [demo, setDemo] = useState<File | null>(null);
-  const [steam64, setSteam64] = useState("");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (demo && steam64.trim()) {
-      onAnalyze(demo, steam64.trim());
+    if (demo) {
+      onImport(demo);
     }
   }
 
@@ -29,18 +28,11 @@ export function UploadPanel({ loading, error, onAnalyze }: UploadPanelProps) {
           onChange={(event) => setDemo(event.target.files?.[0] ?? null)}
         />
       </label>
-      <input
-        className="steam-input"
-        placeholder="Steam64"
-        value={steam64}
-        onChange={(event) => setSteam64(event.target.value)}
-      />
-      <button className="primary-button" disabled={!demo || !steam64.trim() || loading}>
+      <button className="primary-button" disabled={!demo || loading}>
         <Play size={18} />
-        <span>{loading ? "Parsing" : "Analyze"}</span>
+        <span>{loading ? "Reading" : "Add demo"}</span>
       </button>
       {error ? <p className="inline-error">{error}</p> : null}
     </form>
   );
 }
-

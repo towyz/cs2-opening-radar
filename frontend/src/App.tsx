@@ -1,11 +1,15 @@
 import { useMemo, useState } from "react";
-import { ApiError, analyzeDemo, analyzeLocalDemo } from "./api/client";
+import { ApiError, analyzePlayer, importDemo, importLocalDemo, type ImportedDemo, type PlayerOption } from "./api/client";
 import { FilterPanel, type Filters, type ViewMode } from "./components/FilterPanel";
 import { LocalDemoPanel } from "./components/LocalDemoPanel";
 import { MapViewer } from "./components/MapViewer";
 import { OpponentCard } from "./components/OpponentCard";
 import { UploadPanel } from "./components/UploadPanel";
 import type { AnalysisResult } from "./types/analysis";
+
+interface ImportedDemoState extends ImportedDemo {
+  players: PlayerOption[];
+}
 
 const defaultFilters: Filters = {
   demoIndices: [],
@@ -19,12 +23,37 @@ const defaultFilters: Filters = {
 
 export default function App() {
   const [results, setResults] = useState<AnalysisResult[]>([]);
+  const [importedDemos, setImportedDemos] = useState<ImportedDemoState[]>([]);
+  const [selectedSteam64, setSelectedSteam64] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [viewMode, setViewMode] = useState<ViewMode>("overview");
 
   const hasResults = results.length > 0;
+  const playerOptions = useMemo(() => {
+    const players = new Map<string, PlayerOption & { demoCount: number }>();
+    for (const demo of importedDemos) {
+      for (const player of demo.players) {
+        const current = players.get(player.steam64);
+        if (current) {
+          current.demoCount += 1;
+        } else {
+          players.set(player.steam64, { ...player, demoCount: 1 });
+        }
+      }
+    }
+    return Array.from(players.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [importedDemos]);
+  const selectedDemoIds = useMemo(
+    () =>
+      selectedSteam64
+        ? importedDemos
+            .filter((demo) => demo.players.some((player) => player.steam64 === selectedSteam64))
+            .map((demo) => demo.id)
+        : [],
+    [importedDemos, selectedSteam64]
+  );
   const demoOptions = useMemo(
     () =>
       results.map((result, index) => ({
@@ -49,12 +78,12 @@ export default function App() {
     [results]
   );
 
-  async function handleAnalyze(demo: File, steam64: string) {
+  async function handleImportDemo(demo: File) {
     setLoading(true);
     setError(null);
     try {
-      const response = await analyzeDemo({ demo, steam64 });
-      appendResult(response.result);
+      const response = await importDemo({ demo });
+      appendImportedDemo({ ...response.demo, players: response.players });
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -62,12 +91,12 @@ export default function App() {
     }
   }
 
-  async function handleAnalyzeLocal(path: string, steam64: string) {
+  async function handleImportLocalDemo(path: string) {
     setLoading(true);
     setError(null);
     try {
-      const response = await analyzeLocalDemo({ path, steam64 });
-      appendResult(response.result);
+      const response = await importLocalDemo({ path });
+      appendImportedDemo({ ...response.demo, players: response.players });
     } catch (err) {
       setError(formatError(err));
     } finally {
@@ -75,8 +104,30 @@ export default function App() {
     }
   }
 
-  function appendResult(nextResult: AnalysisResult) {
-    const nextResults = [...results, nextResult];
+  async function handleAnalyzeSelectedPlayer() {
+    if (!selectedSteam64 || selectedDemoIds.length === 0) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await analyzePlayer({ demoIds: selectedDemoIds, steam64: selectedSteam64 });
+      replaceResults(response.results);
+    } catch (err) {
+      setError(formatError(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function appendImportedDemo(nextDemo: ImportedDemoState) {
+    setImportedDemos((current) => [...current, nextDemo]);
+    if (!selectedSteam64 && nextDemo.players[0]) {
+      setSelectedSteam64(nextDemo.players[0].steam64);
+    }
+  }
+
+  function replaceResults(nextResults: AnalysisResult[]) {
     setResults(nextResults);
     setFilters((currentFilters) => ({
       ...currentFilters,
@@ -89,6 +140,8 @@ export default function App() {
 
   function handleClearResults() {
     setResults([]);
+    setImportedDemos([]);
+    setSelectedSteam64("");
     setFilters(defaultFilters);
     setViewMode("overview");
     setError(null);
@@ -98,13 +151,22 @@ export default function App() {
     <main className="app-shell">
       <section className="toolbar-band">
         <div className="toolbar-grid">
-          <UploadPanel loading={loading} error={error} onAnalyze={handleAnalyze} />
-          <LocalDemoPanel loading={loading} onAnalyze={handleAnalyzeLocal} />
+          <UploadPanel loading={loading} error={error} onImport={handleImportDemo} />
+          <LocalDemoPanel loading={loading} onImport={handleImportLocalDemo} />
         </div>
       </section>
 
       <section className="workspace-grid">
         <aside className="sidebar">
+          <PlayerSelectionPanel
+            demos={importedDemos}
+            players={playerOptions}
+            selectedSteam64={selectedSteam64}
+            selectedDemoCount={selectedDemoIds.length}
+            loading={loading}
+            onSelect={setSelectedSteam64}
+            onAnalyze={handleAnalyzeSelectedPlayer}
+          />
           <OpponentCard results={results} onClear={handleClearResults} />
           <FilterPanel
             filters={filters}
@@ -119,6 +181,63 @@ export default function App() {
         <MapViewer results={results} filters={filters} viewMode={viewMode} />
       </section>
     </main>
+  );
+}
+
+function PlayerSelectionPanel({
+  demos,
+  players,
+  selectedSteam64,
+  selectedDemoCount,
+  loading,
+  onSelect,
+  onAnalyze
+}: {
+  demos: ImportedDemoState[];
+  players: Array<PlayerOption & { demoCount: number }>;
+  selectedSteam64: string;
+  selectedDemoCount: number;
+  loading: boolean;
+  onSelect: (steam64: string) => void;
+  onAnalyze: () => void;
+}) {
+  return (
+    <section className="player-panel">
+      <div className="player-panel-header">
+        <span>Players</span>
+        <span>{demos.length} demos</span>
+      </div>
+      {demos.length > 0 ? (
+        <div className="imported-demo-list">
+          {demos.map((demo, index) => (
+            <div className="imported-demo-item" key={demo.id} title={demo.name}>
+              D{index + 1} {demo.name}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="config-hint">Add demos to read Perfect World player names.</p>
+      )}
+      <select
+        className="local-demo-select"
+        value={selectedSteam64}
+        disabled={loading || players.length === 0}
+        onChange={(event) => onSelect(event.target.value)}
+      >
+        {players.length === 0 ? (
+          <option value="">No players loaded</option>
+        ) : (
+          players.map((player) => (
+            <option key={player.steam64} value={player.steam64}>
+              {player.name} - {player.demoCount} demo{player.demoCount > 1 ? "s" : ""}
+            </option>
+          ))
+        )}
+      </select>
+      <button className="primary-button" disabled={!selectedSteam64 || selectedDemoCount === 0 || loading} onClick={onAnalyze}>
+        <span>{loading ? "Parsing" : `Analyze ${selectedDemoCount} demo${selectedDemoCount > 1 ? "s" : ""}`}</span>
+      </button>
+    </section>
   );
 }
 
